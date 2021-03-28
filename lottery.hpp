@@ -36,10 +36,13 @@ class [[eosio::contract("lottery")]] lottery : public eosio::contract {
             uint64_t search_for_name() const { return owner.value; }
             uint64_t search_for_period() const { return std::stoll(period); }
         };
+        
         struct [[eosio::table]]allow{
             uint64_t period;
             uint32_t time;
             std::vector <int> numbers;
+            std::vector <int> people_win_prize;
+            eosio::asset currenpeoplet_balance; 
             unsigned char status;
             //status 0=opened, 1=next open, 2=unopen but allow to bet  
             uint64_t primary_key() const { return period; }
@@ -58,94 +61,44 @@ class [[eosio::contract("lottery")]] lottery : public eosio::contract {
             std::vector <unsigned char> numbers;
             uint64_t primary_key() const { return period; }
         };
+
         
+        
+        inline bool period_allow(std::string period,ticket *r_ticket);
+        //return true if the period is allowed
 
+        inline bool bet_allow(eosio::asset quantity);
+        //return true if the bet is allowed
+        //maintain upper and lower bound
 
-        inline bool period_allow(std::string period,ticket *r_ticket){
-            return true;
-        }
-        inline bool bet_allow(eosio::asset quantity){
-            return true;
-        }
+        void sendtoken(name to ,asset quantity);
+        //send token for self
 
-        void sendtoken(name to ,asset quantity){
-            action{
-                permission_level{get_self(), "active"_n},
-                "eosio.token"_n,
-                "transfer"_n,
-                std::make_tuple(get_self(),to, quantity, std::string("witdrawal susses"))
-            }.send();  
-        }
         inline uint32_t now() {
-             return current_time_point().sec_since_epoch();
-        }
+             return current_time_point().sec_since_epoch();}
+
+        void change_seed(const std::vector <int> numbers);
+        //change the secret seed
+
+        void split(const string& s, char c,vector<string>& v) ;
+        //splits string to vector
+
+        void string_decode(std::string memo,ticket * r_ticket);
+        //example formate:"bet:1,2,3,4,5:1"
+
+        inline vector<int> string_numbers(string n_s);
+        //check the numbers is league
+        //return the vector of numbers splits for string
+
+        int open(const vector<int> player_numbers,const vector<int> dealer_numbers,eosio::asset* quantity);
+        //true if player win 
         
-        void change_seed(const std::vector <int> numbers){
-            seed_idx seed_tbl(get_self(),get_self().value);
-            auto seed_itr=seed_tbl.find(1);
-
-            checksum256 old_seed=seed_itr->seed;
-            auto mixd = old_seed.data()+now()+numbers.at(0)+numbers.at(1)+numbers.at(2)+numbers.at(3)+numbers.at(4);
-            const char *mixedChar = reinterpret_cast<const char *>(&mixd);
-            checksum256 new_seed;
-            new_seed=sha256((char *)mixedChar, sizeof(mixedChar));
-
-            seed_tbl.modify(seed_itr,get_self(),[&](auto &row){
-                row.seed=new_seed;
-            });
-
-        };
-        void split(const string& s, char c,vector<string>& v) {
-            string::size_type i = 0;
-            string::size_type j = s.find(c);
-
-            while (j != string::npos) {
-                v.push_back(s.substr(i, j-i));
-                i = ++j;
-                j = s.find(c, j);
-
-                if (j == string::npos)
-                    v.push_back(s.substr(i, s.length()));
-            }
-        }
-        void string_decode(std::string memo,ticket * r_ticket){
-            memo.erase(memo.begin(), find_if(memo.begin(), memo.end(), [](int ch) {
-                    return !isspace(ch);
-                }));
-            memo.erase(find_if(memo.rbegin(), memo.rend(), [](int ch) {
-                    return !isspace(ch);
-            }).base(), memo.end());
-
-            vector<string> v;
-            split(memo, ':', v);
-            check(v.size() == 3, "error:memo");
-            //bet:xxxxx....
-            check(v.at(0)=="bet","error:memo ,with out bet");
-            //numbers
-            r_ticket->numbers=string_numbers(v.at(1));
-            //period
-            check(period_allow(v.at(2),r_ticket),"error:period");
-            r_ticket->period=v.at(2);
-        }
-        inline vector<int> string_numbers(string n_s){
-            vector<string> s_v;
-            split(n_s, ',', s_v);
-            check(s_v.size()==5,"error:number of numbrers");
-            vector<int> r_v;
-            for(int i=0;i<5;i++){
-                int t=stoi(s_v.at(i));
-                for(int j=0;j<i;j++){
-                    check(t!=r_v.at(j),"error:same number");
-                }
-                check(t<=39,"error:number range");
-                check(t>=1,"error:number range");
-                r_v.push_back(t);
-            }
-            return r_v;
-        }
+        asset get_balance(name account, symbol code);
        
          
     public :
+        
+
         lottery( name receiver, name code, datastream<const char*> ds ):contract(receiver, code, ds),accept_symbol(SYMBOL,PRECISION){}
         //action for buyer
 

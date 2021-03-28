@@ -3,6 +3,7 @@ import random
 
 def redeem_sh_gen(f,times):
     f.write('cleos push action lottery settarget \'["1"]\' -p tester@active\n')
+    print('sleep 1 \n')
     for i in range(times):
         f.write('cleos push action lottery redeem \'["tester",%d]\' -p tester@active\r\n'%i)
         f.write('\r\n')
